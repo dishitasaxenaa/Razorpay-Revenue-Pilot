@@ -30,6 +30,24 @@ class RevenueAgent:
         4. Logs the entire chain in the AuditLog.
         """
         # Step 1: Deterministic opportunity detection
+        audit_start = AuditLog(
+            timestamp=datetime.utcnow(),
+            goal_id=goal.id,
+            event_type="ANALYSIS_STARTED",
+            agent_recommendation=f"Analyze store state against goal ₹{goal.target_amount:,.2f}.",
+            reason="ANALYZE: Run deterministic RFM, affinity, replenishment, and campaign-history calculations.",
+            proposed_amount=goal.target_amount,
+            proposed_discount=None,
+            applicable_policy="Merchant Growth Directive",
+            policy_result="IN_PROGRESS",
+            human_approval="NOT_REQUIRED",
+            razorpay_action=None,
+            final_outcome="Analysis started. No money action executed.",
+            metadata_json=None,
+        )
+        db.add(audit_start)
+        db.commit()
+
         store_metrics = RevenueAnalyzer.get_store_metrics(db)
         raw_opportunities = RevenueAnalyzer.get_all_opportunities(db)
 
@@ -75,6 +93,24 @@ class RevenueAgent:
             db.flush()
             total_projected += opp.projected_revenue
 
+            opp_audit = AuditLog(
+                timestamp=datetime.utcnow(),
+                goal_id=goal.id,
+                opportunity_id=opp.id,
+                event_type="OPPORTUNITY_DETECTED",
+                agent_recommendation=opp.title,
+                reason=opp.reasoning,
+                proposed_amount=opp.projected_revenue,
+                proposed_discount=opp.proposed_discount_pct,
+                applicable_policy="Deterministic opportunity detection (no money movement)",
+                policy_result="IDENTIFIED",
+                human_approval="PENDING_POLICY_CHECK",
+                razorpay_action=None,
+                final_outcome=f"REASON/PLAN: {opp.type} targeting {opp.target_customer_count} customers.",
+                metadata_json=None,
+            )
+            db.add(opp_audit)
+
             # Step 4: Formulate Action Proposal & Route through Policy Engine
             # Pick a sample target customer from the cohort
             target_customer = None
@@ -94,7 +130,8 @@ class RevenueAgent:
                 original_price=original_price,
                 proposed_discount_pct=proposed_discount_pct,
                 target_customer_count=opp_data["target_customer_count"],
-                agent_reasoning=opp_data["reasoning"]
+                agent_reasoning=opp_data["reasoning"],
+                action_type="CREATE_PAYMENT_LINK",
             )
 
             action = ActionProposal(

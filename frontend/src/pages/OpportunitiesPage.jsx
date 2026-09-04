@@ -26,10 +26,31 @@ export default function OpportunitiesPage({
     setExpandedReasoning((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const actionMap = {};
-  (actions || []).forEach((act) => {
+  const actionPriority = {
+  BLOCKED: 3,
+  REQUIRES_APPROVAL: 3,
+  APPROVED: 2,
+  EXECUTED: 1,
+};
+
+const actionMap = {};
+
+(actions || []).forEach((act) => {
+  const current = actionMap[act.opportunity_id];
+
+  const currentPriority = current
+    ? actionPriority[current.status] ?? 0
+    : -1;
+
+  const newPriority = actionPriority[act.status] ?? 0;
+
+  // Keep the higher-priority action.
+  // For equal priority, keep the existing one because the API
+  // returns actions newest-first.
+  if (!current || newPriority > currentPriority) {
     actionMap[act.opportunity_id] = act;
-  });
+  }
+});
 
   return (
     <div className="space-y-6">

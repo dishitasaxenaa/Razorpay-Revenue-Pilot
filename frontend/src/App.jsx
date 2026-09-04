@@ -129,9 +129,22 @@ export default function App() {
   };
 
   const handleApproveAction = async (actionId, overrideDiscount, notes) => {
-    await api.approveAction(actionId, overrideDiscount, notes);
-    await loadData();
-    setActiveTab("razorpay");
+    try {
+      const approvedAction = await api.approveAction(
+        actionId,
+        overrideDiscount,
+        notes
+      );
+    
+      // Merchant approval is the gate.
+      // Only after approval succeeds do we execute the money action.
+      await api.executeAction(approvedAction.id);
+    
+      await loadData();
+      setActiveTab("razorpay");
+    } catch (err) {
+      alert("Error approving/executing action: " + err.message);
+    }
   };
 
   const handleExecuteDirectly = async (actionId) => {

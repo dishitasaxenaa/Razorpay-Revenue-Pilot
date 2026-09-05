@@ -1,7 +1,8 @@
-const API_BASE = "/api";
+const API_BASE = "https://razorpay-revenue-pilot.onrender.com/api";
 
 async function request(endpoint, options = {}) {
   const url = `${API_BASE}${endpoint}`;
+
   const config = {
     headers: {
       "Content-Type": "application/json",
@@ -11,16 +12,22 @@ async function request(endpoint, options = {}) {
   };
 
   const res = await fetch(url, config);
+
   if (!res.ok) {
+    const errorText = await res.text();
+
     let errorDetail = "API Request failed";
+
     try {
-      const errJson = await res.json();
-      errorDetail = errJson.detail || JSON.stringify(errJson);
+      const errJson = JSON.parse(errorText);
+      errorDetail = errJson.detail || errorText;
     } catch (_) {
-      errorDetail = await res.text();
+      errorDetail = errorText || `HTTP ${res.status}`;
     }
+
     throw new Error(errorDetail);
   }
+
   return res.json();
 }
 

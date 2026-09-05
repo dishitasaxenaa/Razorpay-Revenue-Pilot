@@ -18,6 +18,7 @@ export default function OpportunitiesPage({
   actions,
   onSelectActionForApproval,
   onExecuteDirectly,
+  onDemoExecutionFailure,
   onNavigateToTab,
 }) {
   const [expandedReasoning, setExpandedReasoning] = useState({});
@@ -26,31 +27,14 @@ export default function OpportunitiesPage({
     setExpandedReasoning((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const actionPriority = {
-  BLOCKED: 3,
-  REQUIRES_APPROVAL: 3,
-  APPROVED: 2,
-  EXECUTED: 1,
-};
-
-const actionMap = {};
-
-(actions || []).forEach((act) => {
-  const current = actionMap[act.opportunity_id];
-
-  const currentPriority = current
-    ? actionPriority[current.status] ?? 0
-    : -1;
-
-  const newPriority = actionPriority[act.status] ?? 0;
-
-  // Keep the higher-priority action.
-  // For equal priority, keep the existing one because the API
-  // returns actions newest-first.
-  if (!current || newPriority > currentPriority) {
-    actionMap[act.opportunity_id] = act;
-  }
-});
+  const actionPriority = { EXECUTED: 1, APPROVED: 2, REQUIRES_APPROVAL: 3, BLOCKED: 3 };
+  const actionMap = {};
+  (actions || []).forEach((act) => {
+    const current = actionMap[act.opportunity_id];
+    if (!current || (actionPriority[act.status] || 0) > (actionPriority[current.status] || 0)) {
+      actionMap[act.opportunity_id] = act;
+    }
+  });
 
   return (
     <div className="space-y-6">
@@ -64,7 +48,7 @@ const actionMap = {};
       <div className="grid grid-cols-1 gap-5">
         {(opportunities || []).map((opp) => {
           const action = actionMap[opp.id];
-          const isBlocked = action && (action.status === "BLOCKED" || action.policy_check_result === "VIOLATION_BLOCKED");
+          const isBlocked = action && (action.status === "BLOCKED" || action.status === "REQUIRES_APPROVAL");
           const isExecuted = action && action.status === "EXECUTED";
           const isPaid = action && action.payment_status === "PAID";
           const isApproved = action && action.status === "APPROVED";
@@ -226,13 +210,22 @@ const actionMap = {};
                         </a>
                       </div>
                     ) : isApproved ? (
-                      <button
-                        onClick={() => onExecuteDirectly(action.id)}
-                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2 rounded-lg shadow-sm transition flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <span>Generate Razorpay Test Link</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => onExecuteDirectly(action.id)}
+                          className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2 rounded-lg shadow-sm transition flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <span>Generate Razorpay Test Link</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => onDemoExecutionFailure(action.id)}
+                          className="text-amber-700 hover:text-amber-800 text-[10px] font-semibold border border-amber-300 px-2 py-1.5 rounded-lg"
+                          title="[DEMO / TESTING UTILITY] Simulate a failed Razorpay execution without creating a link"
+                        >
+                          DEMO: Simulate Razorpay Failure
+                        </button>
+                      </div>
                     ) : null}
                   </div>
 

@@ -73,7 +73,7 @@ export default function GuardrailsPage({ policy, onUpdatePolicy }) {
           <input
             type="range"
             min="5"
-            max="25"
+            max="10"
             step="1"
             value={maxDiscount}
             onChange={(e) => setMaxDiscount(e.target.value)}
@@ -82,7 +82,7 @@ export default function GuardrailsPage({ policy, onUpdatePolicy }) {
           <div className="flex justify-between text-[10px] text-slate-400 font-medium">
             <span>5% (Conservative)</span>
             <span className="text-blue-700 font-bold">10% (Default Safe Bound)</span>
-            <span>25% (Aggressive)</span>
+            <span>10% (Hard Ceiling)</span>
           </div>
         </div>
 
@@ -119,10 +119,10 @@ export default function GuardrailsPage({ policy, onUpdatePolicy }) {
           <div className="p-3.5 bg-white rounded-xl border border-slate-200 flex items-center justify-between">
             <div>
               <div className="text-xs font-bold text-slate-900">Auto-create Payment Links</div>
-              <div className="text-[11px] text-slate-500">Generate Razorpay test checkout links upon policy approval.</div>
+              <div className="text-[11px] text-slate-500">Merchant explicitly generates a link only after approval.</div>
             </div>
             <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-              ON
+              HUMAN-GATED
             </span>
           </div>
 

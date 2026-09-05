@@ -81,8 +81,8 @@ class PolicyResponse(BaseModel):
         from_attributes = True
 
 class PolicyUpdate(BaseModel):
-    max_autonomous_discount_pct: Optional[float] = None
-    max_campaign_budget: Optional[float] = None
+    max_autonomous_discount_pct: Optional[float] = Field(None, ge=0, le=10)
+    max_campaign_budget: Optional[float] = Field(None, ge=0, le=20000)
     require_human_approval_over_discount: Optional[bool] = None
 
 class ActionProposalResponse(BaseModel):
@@ -112,7 +112,7 @@ class ActionProposalResponse(BaseModel):
 
 class ActionApproveRequest(BaseModel):
     action_id: int
-    override_discount_pct: Optional[float] = None
+    override_discount_pct: Optional[float] = Field(None, ge=0, lt=100)
     merchant_notes: Optional[str] = None
 
 class AuditLogResponse(BaseModel):

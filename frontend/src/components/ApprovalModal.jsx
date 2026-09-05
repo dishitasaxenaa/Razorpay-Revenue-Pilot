@@ -179,7 +179,7 @@ export default function ApprovalModal({ action, opportunity, isOpen, onClose, on
             disabled={isSubmitting}
             className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2.5 rounded-lg shadow-sm transition disabled:opacity-50 cursor-pointer"
           >
-            <span>{isSubmitting ? "Generating Link..." : "Approve & Generate Razorpay Test Link"}</span>
+            <span>{isSubmitting ? "Approving..." : "Approve for Link Generation"}</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>

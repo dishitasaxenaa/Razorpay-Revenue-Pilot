@@ -52,6 +52,7 @@ export const api = {
     request(`/opportunities/analyze${goalId ? `?goal_id=${goalId}` : ""}`, {
       method: "POST",
     }),
+  triggerRecoveryProtocol: () => request("/opportunities/demo/recovery-protocol", { method: "POST" }),
 
   // Actions & HITL
   getActions: (goalId) => request(`/actions${goalId ? `?goal_id=${goalId}` : ""}`),
@@ -64,7 +65,8 @@ export const api = {
         merchant_notes: notes,
       }),
     }),
-  executeAction: (actionId) => request(`/actions/${actionId}/execute`, { method: "POST" }),
+  executeAction: (actionId, demoFailure = false) =>
+    request(`/actions/${actionId}/execute${demoFailure ? "?demo_failure=true" : ""}`, { method: "POST" }),
 
   // Payment Webhook & Demo Simulator
   simulatePayment: (actionId) =>

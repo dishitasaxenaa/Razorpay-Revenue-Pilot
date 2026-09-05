@@ -94,7 +94,7 @@ class MerchantPolicy(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, default="Default Growth Guardrails")
     max_autonomous_discount_pct = Column(Float, default=10.0) # Crucial: default is 10%
-    max_campaign_budget = Column(Float, default=25000.0)
+    max_campaign_budget = Column(Float, default=20000.0)
     require_human_approval_over_discount = Column(Boolean, default=True)
     is_active = Column(Boolean, default=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

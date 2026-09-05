@@ -11,7 +11,7 @@ router = APIRouter(prefix="/audit", tags=["Audit Trail & Explainability"])
 @router.get("/logs", response_model=List[AuditLogResponse])
 def get_audit_logs(
     goal_id: Optional[int] = None,
-    limit: int = 250,
+    limit: int = 100,
     db: Session = Depends(get_db)
 ):
     """

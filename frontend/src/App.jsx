@@ -35,6 +35,7 @@ export default function App() {
   const [isProgressModalOpen, setIsProgressModalOpen] = useState(false);
 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isRecovering, setIsRecovering] = useState(false);
   const [isSimulating, setIsSimulating] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -110,6 +111,20 @@ export default function App() {
     setActiveTab("opportunities");
   };
 
+  const handleRecoveryProtocol = async () => {
+    setIsRecovering(true);
+    try {
+      const result = await api.triggerRecoveryProtocol();
+      await loadData();
+      setActiveTab("opportunities");
+      alert(`Recovery Protocol activated: ${result.opportunity_title}`);
+    } catch (err) {
+      alert("Recovery Protocol failed: " + err.message);
+    } finally {
+      setIsRecovering(false);
+    }
+  };
+
   // Set or update revenue directive
   const handleSetGoal = async (prompt, amount) => {
     try {
@@ -129,22 +144,9 @@ export default function App() {
   };
 
   const handleApproveAction = async (actionId, overrideDiscount, notes) => {
-    try {
-      const approvedAction = await api.approveAction(
-        actionId,
-        overrideDiscount,
-        notes
-      );
-    
-      // Merchant approval is the gate.
-      // Only after approval succeeds do we execute the money action.
-      await api.executeAction(approvedAction.id);
-    
-      await loadData();
-      setActiveTab("razorpay");
-    } catch (err) {
-      alert("Error approving/executing action: " + err.message);
-    }
+    await api.approveAction(actionId, overrideDiscount, notes);
+    await loadData();
+    setActiveTab("opportunities");
   };
 
   const handleExecuteDirectly = async (actionId) => {
@@ -154,6 +156,16 @@ export default function App() {
       setActiveTab("razorpay");
     } catch (err) {
       alert("Execution failed: " + err.message);
+    }
+  };
+
+  const handleDemoExecutionFailure = async (actionId) => {
+    try {
+      await api.executeAction(actionId, true);
+    } catch (err) {
+      alert("[DEMO / TESTING UTILITY] " + err.message);
+    } finally {
+      await loadData();
     }
   };
 
@@ -176,6 +188,11 @@ export default function App() {
     setIsResetting(true);
     try {
       await api.resetDemoData();
+      setSelectedAction(null);
+      setSelectedOpportunity(null);
+      setIsApprovalOpen(false);
+      setCustomers([]);
+      setProducts([]);
       await loadData();
       setActiveTab("overview");
     } catch (err) {
@@ -233,8 +250,10 @@ export default function App() {
               opportunities={opportunities}
               actions={actions}
               onRunAnalysis={handleRunAnalysis}
+              onTriggerRecovery={handleRecoveryProtocol}
               onNavigateToTab={handleTabChange}
               isAnalyzing={isAnalyzing}
+              isRecovering={isRecovering}
             />
           )}
 
@@ -244,6 +263,7 @@ export default function App() {
               actions={actions}
               onSelectActionForApproval={handleOpenApproval}
               onExecuteDirectly={handleExecuteDirectly}
+              onDemoExecutionFailure={handleDemoExecutionFailure}
               onNavigateToTab={handleTabChange}
             />
           )}

@@ -93,18 +93,9 @@ class RevenueAnalyzer:
             "projected_revenue": projected_revenue,
             "projected_roi": projected_roi,
             "reasoning": (
-                f"Why this customer: {target_count} high-value buyers (avg lifetime spend ₹{avg_historical_spend:,.0f}, "
-                f"~{avg_orders_per_customer:.1f} historical orders) have been inactive 60+ days.\n"
-                f"Supporting history: Similar VIP win-back campaigns produced the strongest observed ROAS (4.82×) "
-                f"in this catalog versus other growth levers.\n"
-                f"Why this intervention: A curated luxury hamper re-opens a dormant high-LTV relationship without "
-                f"requiring a full catalog browse.\n"
-                f"Why this discount: 15% was proposed to maximize reactivation; merchant guardrail caps autonomous "
-                f"discounting at 10%, so this offer is held for human approval with a compliant 10% alternative.\n"
-                f"Expected impact: ~40% conversion → ₹{projected_revenue:,.0f} incremental revenue "
-                f"(projected ROI {projected_roi}%).\n"
-                f"Guardrail checked: Max autonomous discount 10%; human approval required above 10%; "
-                f"max autonomous ticket ₹5,000; refunds disabled."
+                f"Identified {target_count} high-value customers who spent an average of ₹{avg_historical_spend:,.0f} "
+                f"but have had zero orders in the last 60+ days. Offering a re-engagement incentive on the luxury "
+                f"wellness hamper recaptures dormant churn with an estimated 40% conversion rate."
             )
         }
 
@@ -158,17 +149,8 @@ class RevenueAnalyzer:
             "projected_revenue": projected_revenue,
             "projected_roi": projected_roi,
             "reasoning": (
-                f"Why this customer: {target_count} shoppers bought the Ultrasonic Diffuser and have not bought "
-                f"Essential Oils — a complementary consumable the device requires.\n"
-                f"Supporting history: Diffuser owners without oils show the highest catalog affinity; prior "
-                f"cross-sell waves converted at ~28.5% with 4.23× ROAS.\n"
-                f"Why this intervention: A targeted oils replenishment offer converts existing hardware owners "
-                f"instead of acquiring new traffic.\n"
-                f"Why this discount: 10% selected because it sits at the merchant autonomous discount limit and "
-                f"historically converted this bundle without a policy exception.\n"
-                f"Expected impact: ~55% estimated conversion → ₹{projected_revenue:,.0f} "
-                f"(projected ROI {projected_roi}%).\n"
-                f"Guardrail checked: Max autonomous discount 10% (this offer is compliant); max ticket ₹5,000; refunds disabled."
+                f"{target_count} customers purchased the Ultrasonic Diffuser but have not yet purchased essential oils. "
+                f"Diffusers require oil replenishment, creating high natural purchase affinity (55% estimated conversion)."
             )
         }
 
@@ -219,14 +201,8 @@ class RevenueAnalyzer:
             "projected_revenue": projected_revenue,
             "projected_roi": projected_roi,
             "reasoning": (
-                f"Why this customer: {target_count} active VIPs with lifetime spend over ₹12,000 ordered in the last 30 days.\n"
-                f"Supporting history: High-affinity buyers respond to exclusive high-ticket drops; luxury hamper "
-                f"pre-books previously delivered 3.0× ROAS at lower conversion, so this run uses a tighter 10% courtesy.\n"
-                f"Why this intervention: Early-access hamper upsell captures incremental AOV from customers already in-market.\n"
-                f"Why this discount: 10% stays within the autonomous discount guardrail while signalling VIP status.\n"
-                f"Expected impact: ~35% estimated conversion → ₹{projected_revenue:,.0f} "
-                f"(projected ROI {projected_roi}%).\n"
-                f"Guardrail checked: Max autonomous discount 10%; max autonomous ticket ₹5,000; refunds disabled."
+                f"{target_count} highly active VIPs with spend >₹12,000 have strong brand affinity. "
+                f"Offering exclusive early access to our luxury collector hamper drives high-ticket incrementality."
             )
         }
 
@@ -280,16 +256,8 @@ class RevenueAnalyzer:
             "projected_revenue": projected_revenue,
             "projected_roi": projected_roi,
             "reasoning": (
-                f"Why this customer: {target_count} repeat buyers last purchased consumable tea/soak SKUs 30–45 days ago, "
-                f"the natural restock window.\n"
-                f"Supporting history: Consumable refill campaigns previously converted at ~41% (3.63× ROAS) "
-                f"when discounts stayed modest.\n"
-                f"Why this intervention: Predictive replenishment recovers revenue before the customer substitutes elsewhere.\n"
-                f"Why this discount: 8% selected because historical win-back/refill offers in the 5–10% band produced "
-                f"the strongest observed performance while remaining inside the 10% autonomous discount limit.\n"
-                f"Expected impact: ~50% estimated conversion → ₹{projected_revenue:,.0f} "
-                f"(projected ROI {projected_roi}%).\n"
-                f"Guardrail checked: 8% ≤ 10% max autonomous discount; max ticket ₹5,000; refunds disabled."
+                f"{target_count} repeat customers purchased consumable wellness items between 30 and 45 days ago. "
+                f"Their supply is naturally depleted; a gentle replenishment incentive generates predictable high-margin repeat cash flow."
             )
         }
 

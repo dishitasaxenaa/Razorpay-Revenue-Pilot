@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 import random
 from sqlalchemy.orm import Session
-from app.models import Customer, Product, Order, MerchantPolicy, Goal, AuditLog
+from app.models import Customer, Product, Order, MerchantPolicy, Goal, Opportunity, ActionProposal, AuditLog
 from app.config import settings
 
 PRODUCTS_DATA = [
@@ -205,7 +205,11 @@ def seed_database(db: Session, force: bool = False):
 
     # Clear existing if force
     if force:
+        # Delete dependent lifecycle records first. Leaving these behind caused Reset Demo
+        # to surface stale EXECUTED actions linked to deleted goals/opportunities.
         db.query(AuditLog).delete()
+        db.query(ActionProposal).delete()
+        db.query(Opportunity).delete()
         db.query(Order).delete()
         db.query(Customer).delete()
         db.query(Product).delete()
@@ -224,8 +228,8 @@ def seed_database(db: Session, force: bool = False):
     # 2. Seed Default Merchant Guardrail Policy
     policy = MerchantPolicy(
         name="Default Growth Guardrails",
-        max_autonomous_discount_pct=settings.DEFAULT_MAX_AUTONOMOUS_DISCOUNT, # 10.0%
-        max_campaign_budget=settings.DEFAULT_MAX_CAMPAIGN_BUDGET,
+        max_autonomous_discount_pct=min(settings.DEFAULT_MAX_AUTONOMOUS_DISCOUNT, 10.0),
+        max_campaign_budget=min(settings.DEFAULT_MAX_CAMPAIGN_BUDGET, 20000.0),
         require_human_approval_over_discount=True,
         is_active=True
     )

@@ -22,6 +22,7 @@ class Settings:
     # Merchant Policy Guardrail Defaults
     DEFAULT_MAX_AUTONOMOUS_DISCOUNT: float = float(os.getenv("DEFAULT_MAX_AUTONOMOUS_DISCOUNT", "10.0"))
     DEFAULT_MAX_CAMPAIGN_BUDGET: float = float(os.getenv("DEFAULT_MAX_CAMPAIGN_BUDGET", "20000.0"))
-    DEFAULT_MAX_AUTONOMOUS_TRANSACTION: float = float(os.getenv("DEFAULT_MAX_AUTONOMOUS_TRANSACTION", "5000.0"))
+    MAX_AUTONOMOUS_TRANSACTION: float = 5000.0
+    AUTONOMOUS_REFUNDS_ENABLED: bool = False
 
 settings = Settings()

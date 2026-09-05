@@ -7,8 +7,10 @@ export default function OverviewPage({
   opportunities,
   actions,
   onRunAnalysis,
+  onTriggerRecovery,
   onNavigateToTab,
   isAnalyzing,
+  isRecovering,
 }) {
   const targetAmount = goal?.target_amount || 100000;
   const realizedAmount = goal?.realized_amount || 0;
@@ -45,7 +47,7 @@ export default function OverviewPage({
           </p>
         </div>
 
-        <div>
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={onRunAnalysis}
             disabled={isAnalyzing}
@@ -53,6 +55,14 @@ export default function OverviewPage({
           >
             <Sparkles className={`w-4 h-4 ${isAnalyzing ? "animate-spin" : ""}`} />
             <span>{isAnalyzing ? "Analyzing Store Data..." : "Run AI Growth Analysis"}</span>
+          </button>
+          <button
+            onClick={onTriggerRecovery}
+            disabled={isRecovering}
+            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold px-5 py-3 rounded-lg shadow-sm transition disabled:opacity-50 cursor-pointer"
+          >
+            <AlertTriangle className={`w-4 h-4 ${isRecovering ? "animate-pulse" : ""}`} />
+            <span>{isRecovering ? "Activating Recovery..." : "Simulate Sales Drop"}</span>
           </button>
         </div>
       </div>

@@ -1,13 +1,8 @@
 from datetime import datetime
-from typing import Dict, Any
+from typing import Dict, Any, Tuple, Optional
 from sqlalchemy.orm import Session
-from app.models import MerchantPolicy, AuditLog
+from app.models import MerchantPolicy, ActionProposal, AuditLog
 from app.config import settings
-
-# Server-side bounds (not bypassable from the UI). Refunds are never proposed or executed.
-MAX_AUTONOMOUS_TRANSACTION_INR = settings.DEFAULT_MAX_AUTONOMOUS_TRANSACTION
-REFUNDS_ALLOWED = False
-
 
 class PolicyEngine:
     """
@@ -23,11 +18,17 @@ class PolicyEngine:
             policy = MerchantPolicy(
                 name="Default Growth Guardrails",
                 max_autonomous_discount_pct=10.0,
-                max_campaign_budget=settings.DEFAULT_MAX_CAMPAIGN_BUDGET,
+                max_campaign_budget=20000.0,
                 require_human_approval_over_discount=True,
                 is_active=True
             )
             db.add(policy)
+            db.commit()
+            db.refresh(policy)
+        elif policy.max_autonomous_discount_pct > 10.0 or policy.max_campaign_budget > 20000.0:
+            # These are server-side hard ceilings, irrespective of stale DB values.
+            policy.max_autonomous_discount_pct = min(policy.max_autonomous_discount_pct, 10.0)
+            policy.max_campaign_budget = min(policy.max_campaign_budget, 20000.0)
             db.commit()
             db.refresh(policy)
         return policy
@@ -41,8 +42,7 @@ class PolicyEngine:
         original_price: float,
         proposed_discount_pct: float,
         target_customer_count: int = 1,
-        agent_reasoning: str = "",
-        action_type: str = "CREATE_PAYMENT_LINK",
+        agent_reasoning: str = ""
     ) -> Dict[str, Any]:
         """
         Evaluates a proposed action against merchant guardrails.
@@ -57,39 +57,36 @@ class PolicyEngine:
 
         applicable_policy_str = (
             f"Merchant Policy Guardrail: Max Autonomous Discount = {policy.max_autonomous_discount_pct}%, "
-            f"Max Campaign Budget = ₹{policy.max_campaign_budget:,.2f}, "
-            f"Max Autonomous Transaction = ₹{MAX_AUTONOMOUS_TRANSACTION_INR:,.2f}, Refunds = DISABLED"
+            f"Max Campaign Budget = ₹{policy.max_campaign_budget:,.2f}"
         )
 
-        # 0. Refunds are never allowed
-        if (not REFUNDS_ALLOWED) and "REFUND" in (action_type or "").upper():
+        # An action above this amount is never cleared for autonomous execution.
+        if final_price > settings.MAX_AUTONOMOUS_TRANSACTION:
+            status = "REQUIRES_APPROVAL"
+            policy_result = "TRANSACTION_LIMIT_EXCEEDED"
+            rejection_reason = (
+                f"Checkout amount ₹{final_price:,.2f} exceeds the ₹{settings.MAX_AUTONOMOUS_TRANSACTION:,.2f} "
+                "autonomous transaction limit."
+            )
             audit_log = AuditLog(
-                timestamp=datetime.utcnow(),
-                goal_id=goal_id,
-                opportunity_id=opportunity_id,
-                event_type="POLICY_BLOCKED",
-                agent_recommendation="Autonomous refund proposed.",
-                reason="Merchant policy disables AI-initiated refunds.",
-                proposed_amount=final_price,
+                timestamp=datetime.utcnow(), goal_id=goal_id, opportunity_id=opportunity_id,
+                event_type="POLICY_THRESHOLD_EXCEEDED",
+                agent_recommendation=f"Proposed checkout amount ₹{final_price:,.2f}.",
+                reason=rejection_reason, proposed_amount=final_price,
                 proposed_discount=proposed_discount_pct,
-                applicable_policy=applicable_policy_str,
-                policy_result="REFUND_DISABLED",
-                human_approval="DENIED",
-                razorpay_action="EXECUTION_PREVENTED",
-                final_outcome="Refund action blocked server-side.",
-                metadata_json=None,
+                applicable_policy=applicable_policy_str + f", Max Autonomous Transaction = ₹{settings.MAX_AUTONOMOUS_TRANSACTION:,.2f}",
+                policy_result=policy_result, human_approval="PENDING_MERCHANT_APPROVAL",
+                razorpay_action="EXECUTION_PENDING_APPROVAL",
+                final_outcome="Requires merchant sign-off before Razorpay action.", metadata_json=None
             )
             db.add(audit_log)
             db.commit()
             return {
-                "status": "BLOCKED",
-                "policy_check_result": "REFUND_DISABLED",
-                "rejection_reason": "Autonomous refunds are disabled by merchant policy.",
-                "alternative_proposal": "No refund alternative. Payment-link offers only.",
-                "original_price": original_price,
-                "proposed_discount_pct": proposed_discount_pct,
-                "final_price": final_price,
-                "human_approval": "DENIED",
+                "status": status, "policy_check_result": policy_result,
+                "rejection_reason": rejection_reason,
+                "alternative_proposal": "Reduce the checkout amount to ₹5,000 or obtain merchant approval.",
+                "original_price": original_price, "proposed_discount_pct": proposed_discount_pct,
+                "final_price": final_price, "human_approval": "PENDING_MERCHANT_APPROVAL"
             }
 
         # 1. Check for demonstrative discount violation (> 10.0%)
@@ -129,27 +126,6 @@ class PolicyEngine:
                 metadata_json=f'{{"original_price": {original_price}, "proposed_discount_pct": {proposed_discount_pct}, "policy_max": {policy.max_autonomous_discount_pct}}}'
             )
             db.add(audit_log)
-            alt_audit = AuditLog(
-                timestamp=datetime.utcnow(),
-                goal_id=goal_id,
-                opportunity_id=opportunity_id,
-                event_type="COMPLIANT_ALTERNATIVE",
-                agent_recommendation=f"Adopt {allowed_discount_pct}% discount (₹{allowed_final_price:,.2f}).",
-                reason=(
-                    f"Compliant alternative generated because {proposed_discount_pct}% exceeds the "
-                    f"{policy.max_autonomous_discount_pct}% autonomous discount guardrail. "
-                    f"Merchant approval is required before Razorpay execution."
-                ),
-                proposed_amount=allowed_final_price,
-                proposed_discount=allowed_discount_pct,
-                applicable_policy=applicable_policy_str,
-                policy_result="ALTERNATIVE_READY",
-                human_approval=human_approval_status,
-                razorpay_action="AWAITING_MERCHANT_APPROVAL",
-                final_outcome=alternative_proposal,
-                metadata_json=None,
-            )
-            db.add(alt_audit)
             db.commit()
 
             return {
@@ -206,47 +182,7 @@ class PolicyEngine:
                 "human_approval": human_approval_status
             }
 
-        # 3. Maximum autonomous transaction (₹5,000)
-        ticket = max(original_price, final_price)
-        if ticket > MAX_AUTONOMOUS_TRANSACTION_INR:
-            status = "REQUIRES_APPROVAL"
-            policy_result = "TRANSACTION_CAP_EXCEEDED"
-            rejection_reason = (
-                f"Offer ticket ₹{ticket:,.2f} exceeds the maximum autonomous transaction of "
-                f"₹{MAX_AUTONOMOUS_TRANSACTION_INR:,.2f}."
-            )
-            alternative_proposal = "Requires merchant approval before generating a Razorpay test link."
-            human_approval_status = "PENDING_MERCHANT_APPROVAL"
-            audit_log = AuditLog(
-                timestamp=datetime.utcnow(),
-                goal_id=goal_id,
-                opportunity_id=opportunity_id,
-                event_type="POLICY_THRESHOLD_EXCEEDED",
-                agent_recommendation=f"Create payment link for ₹{final_price:,.2f}.",
-                reason=rejection_reason,
-                proposed_amount=final_price,
-                proposed_discount=proposed_discount_pct,
-                applicable_policy=applicable_policy_str,
-                policy_result=policy_result,
-                human_approval=human_approval_status,
-                razorpay_action="EXECUTION_PENDING_APPROVAL",
-                final_outcome="Human approval required for over-cap ticket size.",
-                metadata_json=None,
-            )
-            db.add(audit_log)
-            db.commit()
-            return {
-                "status": status,
-                "policy_check_result": policy_result,
-                "rejection_reason": rejection_reason,
-                "alternative_proposal": alternative_proposal,
-                "original_price": original_price,
-                "proposed_discount_pct": proposed_discount_pct,
-                "final_price": final_price,
-                "human_approval": human_approval_status,
-            }
-
-        # 4. Passed all guardrails!
+        # 3. Passed all guardrails!
         status = "APPROVED"
         policy_result = "PASSED"
         human_approval_status = "AUTO_APPROVED"
@@ -257,19 +193,14 @@ class PolicyEngine:
             opportunity_id=opportunity_id,
             event_type="POLICY_EVALUATION",
             agent_recommendation=f"Execute offer with {proposed_discount_pct}% discount (₹{final_price:,.2f}).",
-            reason=(
-                f"Complies with merchant guardrails: discount {proposed_discount_pct}% ≤ "
-                f"{policy.max_autonomous_discount_pct}%; ticket ₹{ticket:,.2f} ≤ "
-                f"₹{MAX_AUTONOMOUS_TRANSACTION_INR:,.2f}; refunds disabled; human approval required above "
-                f"{policy.max_autonomous_discount_pct}%."
-            ),
+            reason=f"Complies with all policy rules (discount {proposed_discount_pct}% <= {policy.max_autonomous_discount_pct}%).",
             proposed_amount=final_price,
             proposed_discount=proposed_discount_pct,
             applicable_policy=applicable_policy_str,
             policy_result=policy_result,
             human_approval=human_approval_status,
             razorpay_action="READY_FOR_EXECUTION",
-            final_outcome="Policy check passed. Awaiting explicit merchant click to generate Razorpay TEST MODE link.",
+            final_outcome="Policy check passed. Cleared for Razorpay test action.",
             metadata_json=None
         )
         db.add(audit_log)
@@ -285,29 +216,3 @@ class PolicyEngine:
             "final_price": final_price,
             "human_approval": human_approval_status
         }
-
-    @classmethod
-    def assert_can_execute(cls, db: Session, action) -> None:
-        """
-        Re-enforces guardrails at execution time so a direct API call cannot skip policy.
-        Merchant-approved overrides may exceed the autonomous discount cap.
-        Raises ValueError with a merchant-safe message when blocked.
-        """
-        if "REFUND" in (action.action_type or "").upper() and not REFUNDS_ALLOWED:
-            raise ValueError("Refunds are disabled. No payment action was executed.")
-
-        policy = cls.get_active_policy(db)
-        ticket = max(action.original_price or 0, action.final_price or 0)
-
-        if not action.approved_by_merchant:
-            if action.proposed_discount_pct > policy.max_autonomous_discount_pct:
-                raise ValueError(
-                    f"Discount {action.proposed_discount_pct}% exceeds the {policy.max_autonomous_discount_pct}% "
-                    "autonomous limit. Merchant approval is required."
-                )
-            if ticket > MAX_AUTONOMOUS_TRANSACTION_INR:
-                raise ValueError(
-                    f"Ticket ₹{ticket:,.2f} exceeds the ₹{MAX_AUTONOMOUS_TRANSACTION_INR:,.0f} "
-                    "autonomous transaction cap. Merchant approval is required."
-                )
-

@@ -1,141 +1,514 @@
-# RevenueSystem — AI Revenue Growth Agent for Merchants
+# Revenue Pilot
 
-**Track**: Razorpay AI Buildathon 2026 — Track 01: "AI Growth & Agentic Commerce"  
-**Project**: RevenueSystem  
-**Store Profile**: *Aura Living* (D2C Lifestyle, Wellness & Fragrance Brand)
+### AI that finds, plans, and executes your next revenue opportunity.
 
----
+Revenue Pilot is an AI-powered revenue growth agent for merchants. It analyzes customer, product, and transaction data to identify high-value revenue opportunities, proposes targeted actions, applies merchant-defined guardrails, and executes approved actions through Razorpay Test Mode.
 
-## 🎯 Executive Summary & Core Idea
+**🚀 Live Demo:** [Open Revenue Pilot](https://razorpay-revenue-pilot-sage.vercel.app/)
+**📐 Architecture:** [View Architecture](./architecture/architecture.md)
 
-Most e-commerce merchants are overwhelmed by passive analytics dashboards that state problems without taking action (*"Your churn is 14%"*).
-
-**RevenueSystem** transforms analytics into **Agentic Commerce**:
-1. The merchant provides a high-level financial directive:  
-   👉 **`"Help me generate ₹1,00,000 additional revenue."`**
-2. The agent analyzes historical store transactions, customer RFM segments, and product affinity patterns using **deterministic Python analytics**.
-3. It decomposes the revenue goal into **quantified, ranked growth opportunities** (Win-Back, Cross-Sell, VIP Upsell, Consumable Replenishment).
-4. It enforces **strict merchant guardrails** (e.g. maximum autonomous discount limit of 10%).
-5. **The agent NEVER directly executes money-related actions autonomously without policy clearance.**
-6. When an action complies or is approved via Human-in-the-Loop (HITL), it **executes real Razorpay Test-Mode Payment Links** (`https://rzp.io/i/...`).
-7. Incoming test payments or simulated webhooks update the merchant's revenue goal in real time and trigger **lightweight learning** across customer profiles.
-8. A **first-class Audit Trail** logs every decision, reason, policy check, human sign-off, and payment receipt for complete explainability.
+> **The agent proposes. The policy engine bounds. The approval gate controls. Razorpay executes. The audit trail records.**
 
 ---
 
-## 🛡️ Demonstrable Failure Scenario (Strict Guardrail Enforcement)
+## Overview
 
-As mandated by safe agentic principles:
-- **Default Policy**: Maximum autonomous discount capped at **`10.0%`**.
-- **Agent Proposal**: For the *VIP Churn Win-Back Campaign*, the AI reasoning layer targets a **`15.0%`** discount on a ₹4,999 luxury hamper to maximize dormant reactivation.
-- **Policy Engine Interception**: The Policy Engine intercepts the action and marks it as **`VIOLATION_BLOCKED`**.
-- **Explainability**: The agent explains why 15% was proposed, cites the violated 10% policy, and automatically formulates an allowed **`10.0%` compliant alternative** (Price: ₹4,499.10).
-- **Human-in-the-Loop**: The merchant reviews the proposal in the HITL Modal, signs off on the compliant alternative (or provides an explicit override), triggering Razorpay test link execution.
-- **Audit Log**: The entire chain of events (`POLICY_BLOCKED` → `MERCHANT_APPROVAL_GRANTED` → `RAZORPAY_LINK_CREATED`) is immutably recorded in SQLite.
+Merchants often have valuable revenue opportunities hidden in their existing customer and transaction data — customers at risk of churning, customers ready for an upsell, or customers who purchased a product but not its complementary products.
+
+Revenue Pilot turns these signals into **actionable and controlled revenue opportunities**.
+
+A merchant can define a revenue goal such as:
+
+> **"Help me generate ₹1,00,000 in additional revenue."**
+
+Revenue Pilot analyzes the available business data, identifies opportunities, estimates potential revenue and ROI, proposes an action, checks it against merchant policies, and routes the approved action to Razorpay.
+
+Every important decision and outcome is recorded in the audit trail.
 
 ---
 
-## 🏗️ Architecture & Tech Stack
+## How It Works
 
+```text
+Merchant Goal
+     ↓
+Analyze Customer + Product + Transaction Data
+     ↓
+Identify Revenue Opportunities
+     ↓
+Create Action Proposal
+     ↓
+Check Merchant Guardrails
+     ↓
+Auto-Approve OR Request Merchant Approval
+     ↓
+Execute Approved Action
+     ↓
+Create Razorpay Test Mode Payment Link
+     ↓
+Payment / Webhook Outcome
+     ↓
+Update Revenue + Goal Progress
+     ↓
+Audit Trail
 ```
-RevenueSystem/
-├── backend/                  # FastAPI + SQLite + Razorpay Python SDK
+
+The core operating loop is:
+
+**Analyze → Reason → Plan → Policy Check → Approval → Execute → Observe → Recover → Audit**
+
+---
+
+## Key Features
+
+### 🎯 Revenue Opportunity Detection
+
+Revenue Pilot identifies revenue opportunities across four use cases:
+
+- **VIP Churn Win-Back** — target high-value customers who have become inactive.
+- **Cross-Sell** — identify customers who own a product but are missing complementary products.
+- **VIP Upsell** — target high-value active customers with relevant higher-value offers.
+- **Replenishment** — identify customers likely to need a repeat purchase.
+
+Each opportunity includes:
+
+- Target customer cohort
+- Proposed offer
+- Projected revenue
+- Estimated conversion rate
+- Projected ROI
+- AI-generated reasoning/explanation
+
+### 🛡️ Merchant Guardrails
+
+Merchants define limits that the system must respect before an action can be executed.
+
+### 👤 Approval-Gated Execution
+
+Actions outside autonomous limits are blocked and routed to the merchant for review.
+
+The merchant can review the proposed action and approve the compliant alternative before execution.
+
+### 💳 Razorpay Payment Links
+
+Approved actions can create **Razorpay Test Mode Payment Links** directly from Revenue Pilot.
+
+### 🔔 Webhook-Based Payment Updates
+
+Revenue Pilot receives Razorpay payment events and updates the corresponding action and revenue state.
+
+### 📋 Explainable Audit Trail
+
+The system records the lifecycle of important actions:
+
+```text
+Opportunity
+    ↓
+Policy Check
+    ↓
+Approval
+    ↓
+Razorpay Action
+    ↓
+Payment
+    ↓
+Revenue Update
+```
+
+This makes it possible to understand **why an action was proposed, what policy decision was made, what happened during execution, and what payment outcome followed**.
+
+### 🚨 Graceful Failure Handling
+
+If Razorpay Test Mode fails while creating a Payment Link:
+
+- No fake payment is recorded.
+- The failure is recorded in the audit trail.
+- The approved action remains recoverable.
+- The merchant can retry the action.
+
+### 🔄 Recovery Protocol
+
+Revenue Pilot also includes a demo recovery flow that responds to a simulated sales drop by selecting a compliant, high-ROI opportunity and routing it through the existing approval and Razorpay execution flow.
+
+---
+
+# Guardrails
+
+Revenue Pilot uses explicit merchant-defined policies to bound revenue actions.
+
+| Guardrail | Current Limit |
+|---|---:|
+| Maximum autonomous discount | **10%** |
+| Maximum campaign budget | **₹20,000** |
+| Maximum autonomous transaction | **₹5,000** |
+| Refunds | **Disabled** |
+| Human approval above discount limit | **Enabled** |
+
+### Example
+
+If the system proposes a **15% discount**:
+
+```text
+Proposed:       15%
+Merchant Limit: 10%
+                  ↓
+           POLICY BLOCKED
+                  ↓
+       Compliant Alternative
+                  ↓
+                10%
+                  ↓
+        Merchant Approval
+```
+
+The system does not bypass the merchant's policy to execute the original proposal.
+
+---
+
+# Razorpay Integration
+
+Revenue Pilot uses the **Razorpay Payment Links API** to turn approved revenue opportunities into payment actions.
+
+The integration follows this flow:
+
+```text
+Approved Action
+      ↓
+Revenue Pilot Backend
+      ↓
+Razorpay Payment Links API
+      ↓
+Razorpay Test Mode Payment Link
+      ↓
+Test Checkout
+      ↓
+Payment
+      ↓
+Razorpay Webhook
+      ↓
+Revenue Pilot
+      ↓
+Update Payment + Revenue + Audit
+```
+
+The Payment Links API allows Revenue Pilot to connect a revenue decision directly to a payment action.
+
+### Webhooks
+
+Revenue Pilot exposes:
+
+```text
+POST /api/webhooks/razorpay
+```
+
+The webhook receiver:
+
+1. Reads the raw request body.
+2. Validates the Razorpay webhook signature when configured.
+3. Processes the Payment Link payment event.
+4. Matches the event to the corresponding Revenue Pilot action.
+5. Records the payment outcome.
+6. Updates application state and audit data.
+
+The implementation uses Razorpay's HMAC-SHA256 webhook signature mechanism.
+
+### Test Mode
+
+All payment execution in this project uses **Razorpay Test Mode**.
+
+**No real money is processed.**
+
+The application also contains a clearly labelled:
+
+> **DEMO / TESTING UTILITY**
+
+for simulating a successful payment outcome during demonstrations.
+
+---
+
+# Failure Handling
+
+Revenue Pilot explicitly handles payment execution failure.
+
+```text
+Approved Action
+      ↓
+Razorpay Execution
+      ↓
+     FAIL
+      ↓
+No Payment Link Created
+      ↓
+Failure Recorded
+      ↓
+Action Remains Recoverable
+```
+
+The system does **not** convert an execution failure into a successful payment or fake revenue.
+
+This demonstrates the principle that money actions must be **bounded, explainable, and auditable**.
+
+---
+
+# Recovery Protocol
+
+Revenue Pilot includes a demo recovery protocol for an unexpected sales drop.
+
+```text
+Simulated Sales Drop
+        ↓
+Recovery Protocol Activated
+        ↓
+Analyze Existing Opportunities
+        ↓
+Select Highest-ROI Compliant Opportunity
+        ↓
+Policy Check
+        ↓
+Approval / Existing Execution Flow
+        ↓
+Razorpay Test Mode
+        ↓
+Revenue + Audit Update
+```
+
+The recovery protocol does not bypass the existing guardrails or approval flow.
+
+---
+
+# Architecture
+
+See the detailed architecture:
+
+**[`architecture/architecture.md`](./architecture/architecture.md)**
+
+The system consists of:
+
+- React + Vite frontend
+- FastAPI backend
+- Revenue analysis and opportunity engine
+- Merchant policy engine
+- Approval gate
+- Razorpay Payment Link executor
+- Razorpay webhook receiver
+- SQLite application database
+- Audit trail
+
+---
+
+# Tech Stack
+
+### Frontend
+- React
+- Vite
+- Tailwind CSS
+
+### Backend
+- Python
+- FastAPI
+- SQLAlchemy
+
+### Database
+- SQLite
+
+### Payments
+- Razorpay Payment Links API
+- Razorpay Test Mode
+- Razorpay Webhooks
+
+### Deployment
+- **Vercel** — Frontend
+- **Render** — Backend
+
+---
+
+# Project Structure
+
+```text
+Revenue Pilot/
+│
+├── backend/
 │   ├── app/
-│   │   ├── main.py           # FastAPI entry point, CORS & Lifespan
-│   │   ├── config.py         # App configuration & guardrail defaults
-│   │   ├── database.py       # SQLite engine (revenue_system.db)
-│   │   ├── models.py         # Customer, Product, Order, Goal, Opportunity, ActionProposal, AuditLog
-│   │   ├── schemas.py        # Pydantic validation schemas
-│   │   ├── seed_data.py      # 60 realistic customers, 12 products, 210 historical orders
+│   │   ├── routes/
 │   │   ├── services/
-│   │   │   ├── analyzer.py   # Deterministic Python calculations (AOV, RFM, affinity, ROI)
-│   │   │   ├── agent.py      # Claude reasoning layer (strategy synthesis & campaign copy)
-│   │   │   ├── policy_engine.py # Deterministic guardrail validation & failure handling
-│   │   │   └── razorpay_service.py # Razorpay Test-Mode SDK & Webhook processor
-│   │   └── routes/           # /goals, /opportunities, /actions, /webhooks, /audit, /analytics
-│   ├── test_app.py           # Comprehensive end-to-end test suite
+│   │   ├── config.py
+│   │   ├── database.py
+│   │   ├── models.py
+│   │   ├── schemas.py
+│   │   └── main.py
 │   ├── requirements.txt
 │   └── .env
-├── frontend/                 # React + Vite + Tailwind CSS
+│
+├── frontend/
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── Navbar.jsx            # Store metrics pill & demo reset button
-│   │   │   ├── GoalHero.jsx          # Dynamic multi-tier revenue progress bar
-│   │   │   ├── OpportunityPipeline.jsx # AI Growth Cards with policy badges
-│   │   │   ├── ApprovalModal.jsx     # HITL sign-off & demonstrable failure resolver
-│   │   │   ├── RazorpayLivePanel.jsx # Test checkout table with Payment Simulator
-│   │   │   ├── AuditTimeline.jsx     # First-class explainability log
-│   │   │   └── PolicyModal.jsx       # Guardrail settings configurator
-│   │   ├── api.js            # API client
-│   │   ├── App.jsx           # Main merchant dashboard
-│   │   └── main.jsx
+│   │   ├── pages/
+│   │   ├── App.jsx
+│   │   └── api.js
 │   └── package.json
-├── run_backend.bat           # One-click Windows backend runner
-├── run_frontend.bat          # One-click Windows frontend runner
-└── README.md
+│
+├── architecture/
+│   ├── architecture.md
+│   └── architecture.png
+│
+├── README.md
+└── .gitignore
 ```
 
 ---
 
-## ⚡ Quickstart & Running Locally
+# Running Locally
 
-### Prerequisites
-- Python 3.10+
-- Node.js 18+ and npm
+## 1. Clone the repository
 
-### 1. Start Backend Server
-```powershell
-cd backend
-python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```bash
+git clone https://github.com/dishitasaxenaa/Razorpay-Revenue-Pilot.git
+cd Razorpay-Revenue-Pilot
 ```
-*The backend automatically seeds the SQLite database (`revenue_system.db`) with 60 customer profiles, 12 products, and 210 historical orders on first startup.*
 
-### 2. Start Frontend Dashboard
-```powershell
+## 2. Backend
+
+```bash
+cd backend
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+```
+
+The backend will run locally on:
+
+```text
+http://127.0.0.1:8000
+```
+
+## 3. Frontend
+
+In a separate terminal:
+
+```bash
 cd frontend
+npm install
 npm run dev
 ```
-Open **http://localhost:5173** in your browser.
 
-*(On Windows, you can also simply double-click `run_backend.bat` and `run_frontend.bat`).*
+Vite will provide the local frontend URL.
 
 ---
 
-## 🧪 Running Automated Verification Tests
+# Environment Variables
 
-The test suite validates the entire deterministic mathematics, policy guardrails, demonstrable failure interception, and Razorpay test payment flow:
+Create a `.env` file inside `backend/`:
 
-```powershell
-cd backend
-python -u test_app.py
+```env
+RAZORPAY_KEY_ID=your_test_key_id
+RAZORPAY_KEY_SECRET=your_test_key_secret
+RAZORPAY_WEBHOOK_SECRET=your_webhook_secret
+
+DEFAULT_MAX_AUTONOMOUS_DISCOUNT=10
+DEFAULT_MAX_CAMPAIGN_BUDGET=20000
 ```
 
-All 8 assertion steps pass out of the box.
+**Never commit real Razorpay credentials or webhook secrets to the repository.**
 
 ---
 
-## 💳 Razorpay Test-Mode Integration
+# Demo Flow
 
-| Component | Test Mode Behavior |
-| :--- | :--- |
-| **Payment Links API** | Generates real test checkout URLs (`https://rzp.io/i/...`) for approved merchant opportunities. |
-| **Webhooks** | Listens to `payment_link.paid` and `payment.captured` with HMAC SHA256 verification. |
-| **Payment Simulator** | Clearly labeled in the UI as **`[DEMO / TESTING UTILITY]`** to trigger instant payments during hackathon judging presentations without manual test card entry. |
-| **Lightweight Learning** | Upon payment capture, increments customer spend, advances orders count, transitions dormant VIPs to `REACTIVATED_VIP`, and appends a verified purchase order. |
+For a quick demonstration:
+
+### 1. Set a revenue goal
+
+Example:
+
+```text
+Help me generate ₹1,00,000 in additional revenue.
+```
+
+### 2. Run AI Growth Analysis
+
+Revenue Pilot analyzes the merchant's data and generates revenue opportunities.
+
+### 3. Review Opportunities
+
+Explore:
+
+- Target customers
+- Offer
+- Projected revenue
+- ROI
+- AI reasoning
+- Policy status
+
+### 4. Demonstrate the Guardrail
+
+Open the VIP Churn Win-Back opportunity.
+
+The system proposes **15%**, while the merchant's autonomous limit is **10%**.
+
+Revenue Pilot blocks the original action and proposes a compliant **10% alternative**.
+
+### 5. Approve an Action
+
+Approve the compliant action.
+
+### 6. Generate Razorpay Test Link
+
+Revenue Pilot creates a Razorpay **Test Mode Payment Link**.
+
+### 7. Complete Test Payment
+
+Open the test link and complete the payment using Razorpay's Test Mode payment flow.
+
+### 8. Verify the Result
+
+Return to Revenue Pilot and view:
+
+- Payment status
+- Updated revenue
+- Goal progress
+- Audit Trail
+
+### 9. Demonstrate Failure Handling
+
+Use the demo failure utility to simulate a Razorpay execution failure and show that:
+
+- No fake payment is created.
+- The failure is recorded.
+- The action remains recoverable.
 
 ---
 
-## 📜 Audit Trail First-Class Features
+# Test Mode Notice
 
-Every single money-related event logs:
-- `timestamp`: Exact UTC time of the event
-- `goal`: Active merchant target (e.g. ₹1,00,000)
-- `opportunity`: Specific growth campaign
-- `agent_recommendation`: What the AI proposed
-- `reason`: Full natural-language decision explainability
-- `proposed_amount / proposed_discount`: Numerical values
-- `applicable_policy`: Active merchant policy rule evaluated
-- `policy_result`: `VIOLATION_BLOCKED`, `PASSED`, `MERCHANT_OVERRIDE_APPROVED`
-- `human_approval`: `NOT_REQUIRED`, `PENDING`, `APPROVED_BY_MERCHANT`
-- `razorpay_action`: Test link ID and checkout URL
-- `final_outcome`: Realized outcome or reason for block
+This project is built using **Razorpay Test Mode**.
+Payment Links and checkout transactions shown in the demo are for testing and evaluation only.
+The application's payment simulator is explicitly labelled **DEMO / TESTING UTILITY** and should not be interpreted as a real payment.
+
+---
+
+# Razorpay Buildathon — Track 01
+
+Revenue Pilot is built for **AI Growth & Agentic Commerce**.
+The project focuses on the merchant-side revenue growth problem:
+> **Identify a revenue opportunity → make a bounded decision → get approval where required → execute through Razorpay → observe the outcome.**
+
+The implementation specifically demonstrates:
+
+- Revenue opportunity discovery
+- Controlled agent actions
+- Merchant-defined guardrails
+- Human approval for bounded actions
+- Razorpay payment execution
+- Payment event handling
+- Explainable decisions
+- Auditability
+- Graceful failure and recovery
+
+---
+
+# Design Principle
+
+> **The agent proposes.**  
+> **The policy engine bounds.**  
+> **The approval gate controls.**  
+> **Razorpay executes.**  
+> **The audit trail records.**
